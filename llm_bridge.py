@@ -23,8 +23,8 @@ class LLMProvider(Enum):
     """Supported LLM providers"""
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
-    LOCAL = "local"  # For local models like llama.cpp
-    MOCK = "mock"    # For testing without API calls
+    GEMINI = "gemini"
+    XAI = "xai"
 
 
 @dataclass
@@ -259,67 +259,25 @@ class AnthropicProvider(BaseLLMProvider):
             raise
 
 
-class MockProvider(BaseLLMProvider):
-    """Mock provider for testing without API calls"""
-    
-    def __init__(self, config: LLMConfig):
-        super().__init__(config)
-        self.response_counter = 0
-    
-    def complete(self, prompt: str, **kwargs) -> LLMResponse:
-        """Generate mock completion"""
-        start_time = time.time()
-        
-        # Generate deterministic but varied response
-        prompt_hash = hashlib.md5(prompt.encode()).hexdigest()
-        self.response_counter += 1
-        
-        # Simulate different response patterns based on prompt content
-        if "?" in prompt:
-            content = f"[Mock-{prompt_hash[:6]}] Inquiring response to question #{self.response_counter}"
-        elif "!" in prompt:
-            content = f"[Mock-{prompt_hash[:6]}] Insightful formulation #{self.response_counter}"
-        elif "≡" in prompt:
-            content = f"[Mock-{prompt_hash[:6]}] Precise description #{self.response_counter}"
-        elif "⇔" in prompt:
-            content = f"[Mock-{prompt_hash[:6]}] Critical reflection #{self.response_counter}"
-        else:
-            content = f"[Mock-{prompt_hash[:6]}] Standard response #{self.response_counter}"
-        
-        # Simulate latency
-        time.sleep(0.1 * kwargs.get("temperature", self.config.temperature))
-        latency = time.time() - start_time
-        
-        prompt_tokens = self.estimate_tokens(prompt)
-        completion_tokens = self.estimate_tokens(content)
-        
-        return LLMResponse(
-            content=content,
-            provider=LLMProvider.MOCK,
-            model="mock-model",
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
-            total_tokens=prompt_tokens + completion_tokens,
-            latency=latency,
-            cost=0.0,
-            metadata={"mock": True, "counter": self.response_counter}
-        )
-    
-    def chat(self, messages: List[Dict[str, str]], **kwargs) -> LLMResponse:
-        """Generate mock chat completion"""
-        # Use last message as prompt
-        prompt = messages[-1]["content"] if messages else ""
-        return self.complete(prompt, **kwargs)
 
 
 class LLMBridge:
     """Unified interface for multiple LLM providers"""
     
     def __init__(self, config: Optional[LLMConfig] = None):
-        """Initialize with configuration or use defaults"""
+        """Initialize with configuration or detect from environment"""
         if config is None:
-            # Default to mock provider for testing
-            config = LLMConfig(provider=LLMProvider.MOCK)
+            # Auto-detect provider from available API keys
+            if os.getenv("OPENAI_API_KEY"):
+                config = LLMConfig(provider=LLMProvider.OPENAI)
+            elif os.getenv("ANTHROPIC_API_KEY"):
+                config = LLMConfig(provider=LLMProvider.ANTHROPIC)
+            elif os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"):
+                config = LLMConfig(provider=LLMProvider.GEMINI)
+            elif os.getenv("XAI_API_KEY"):
+                config = LLMConfig(provider=LLMProvider.XAI)
+            else:
+                raise ValueError("No API keys found. Please set OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, or XAI_API_KEY in environment or .env file")
         
         self.config = config
         self.provider = self._initialize_provider()
@@ -337,8 +295,12 @@ class LLMBridge:
             return OpenAIProvider(self.config)
         elif self.config.provider == LLMProvider.ANTHROPIC:
             return AnthropicProvider(self.config)
-        elif self.config.provider == LLMProvider.MOCK:
-            return MockProvider(self.config)
+        elif self.config.provider == LLMProvider.GEMINI:
+            # Would need GeminiProvider implementation
+            raise NotImplementedError("Gemini provider not yet implemented. Use OpenAI or Anthropic.")
+        elif self.config.provider == LLMProvider.XAI:
+            # Would need XAIProvider implementation
+            raise NotImplementedError("X.AI provider not yet implemented. Use OpenAI or Anthropic.")
         else:
             raise ValueError(f"Unsupported provider: {self.config.provider}")
     
@@ -437,6 +399,12 @@ class LLMBridge:
         """Switch to a different LLM provider"""
         logger.info(f"Switching from {self.config.provider.value} to {provider.value}")
         
+        if provider not in [LLMProvider.OPENAI, LLMProvider.ANTHROPIC]:
+            if provider == LLMProvider.GEMINI:
+                raise NotImplementedError("Gemini provider not yet implemented")
+            elif provider == LLMProvider.XAI:
+                raise NotImplementedError("X.AI provider not yet implemented")
+        
         self.config.provider = provider
         if api_key:
             self.config.api_key = api_key
@@ -458,54 +426,44 @@ def main():
     print("LLM BRIDGE DEMONSTRATION")
     print("═" * 60)
     
-    # Initialize with mock provider for testing
-    bridge = LLMBridge(LLMConfig(provider=LLMProvider.MOCK))
-    
-    # Test operational prompts
-    test_prompts = [
-        "≡ I am careful scribing ≡ What appears before me: the nature of reality",
-        "? I am seeking-into ? What questions emerge from observing patterns?",
-        "! I am giving-form-to-insight ! A pattern crystallizes from chaos",
-        "⇔ I am bending-back-to-examine ⇔ Testing this insight against evidence",
-    ]
-    
-    print("\nTesting Operational Prompts:")
-    print("-" * 40)
-    
-    for prompt in test_prompts:
-        response = bridge.execute_prompt(prompt, temperature=0.7)
-        print(f"\nPrompt: {prompt[:50]}...")
-        print(f"Response: {response.content}")
-        print(f"Latency: {response.latency:.3f}s")
-    
-    # Test batch execution
-    print("\n\nBatch Execution Test:")
-    print("-" * 40)
-    
-    batch_responses = bridge.batch_execute(test_prompts[:2])
-    for i, response in enumerate(batch_responses):
-        print(f"\nBatch {i+1}: {response.content}")
-    
-    # Test operation with variables
-    print("\n\nOperation Template Test:")
-    print("-" * 40)
-    
-    template = "? I am seeking-into ? From {observation}: What {question_type} emerge?"
-    variables = {
-        "observation": "the patterns in code",
-        "question_type": "architectural questions"
-    }
-    
-    response = bridge.execute_operation(template, variables)
-    print(f"\nTemplate Response: {response.content}")
-    
-    # Show usage report
-    print("\n\nUsage Report:")
-    print("-" * 40)
-    report = bridge.get_usage_report()
-    for key, value in report.items():
-        print(f"{key}: {value}")
-    
+    try:
+        # Initialize with auto-detected provider
+        bridge = LLMBridge()
+        
+        print(f"\nUsing Provider: {bridge.config.provider.value}")
+        print(f"Model: {bridge.config.model}")
+        
+        # Test operational prompts
+        test_prompts = [
+            "≡ I am careful scribing ≡ What appears before me: the nature of reality",
+            "? I am seeking-into ? What questions emerge from observing patterns?",
+            "! I am giving-form-to-insight ! A pattern crystallizes from chaos",
+            "⇔ I am bending-back-to-examine ⇔ Testing this insight against evidence",
+        ]
+        
+        print("\nTesting Operational Prompts:")
+        print("-" * 40)
+        
+        for prompt in test_prompts:
+            response = bridge.execute_prompt(prompt, temperature=0.7)
+            print(f"\nPrompt: {prompt[:50]}...")
+            print(f"Response: {response.content[:100]}...")
+            print(f"Latency: {response.latency:.3f}s")
+            print(f"Tokens: {response.total_tokens}")
+        
+        # Show usage report
+        print("\n\nUsage Report:")
+        print("-" * 40)
+        report = bridge.get_usage_report()
+        for key, value in report.items():
+            print(f"{key}: {value}")
+        
+    except ValueError as e:
+        print(f"\n⚠ Error: {e}")
+        print("\nPlease ensure you have set up your API keys in the .env file:")
+        print("  OPENAI_API_KEY=your-key-here")
+        print("  ANTHROPIC_API_KEY=your-key-here")
+        
     print("\n" + "═" * 60)
     print("Bridge demonstration complete")
     print("═" * 60)

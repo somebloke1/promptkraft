@@ -43,14 +43,16 @@ cp .env.example .env
 # Edit .env and add your API keys
 ```
 
-### API Keys Setup
+### API Keys Setup (Required)
 
-Create a `.env` file with your API keys:
+Create a `.env` file with your API keys. **At least one API key is required - the system will not run without it:**
 
 ```env
-# At least one of these is required for real LLM interaction
+# Required - at least one of these must be set:
 OPENAI_API_KEY=your-openai-key-here
 ANTHROPIC_API_KEY=your-anthropic-key-here
+
+# Future support planned:
 GEMINI_API_KEY=your-gemini-key-here
 XAI_API_KEY=your-xai-key-here
 ```
@@ -126,19 +128,21 @@ Tests include:
 
 ### LLM Bridge
 
-Direct LLM interaction:
+Direct LLM interaction (requires API keys):
 
 ```python
 from llm_bridge import LLMBridge, LLMConfig, LLMProvider
 
 # Initialize with your preferred provider
-config = LLMConfig(provider=LLMProvider.OPENAI)
+config = LLMConfig(provider=LLMProvider.OPENAI)  # or ANTHROPIC
 bridge = LLMBridge(config)
 
 # Execute a prompt
 response = bridge.execute_prompt("Your prompt here")
 print(response.content)
 ```
+
+**Note:** The system requires real API keys. No mock or simulation modes are available.
 
 ## 📚 Documentation
 

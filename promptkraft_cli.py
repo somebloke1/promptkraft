@@ -51,13 +51,8 @@ class PromptKraftCLI:
         elif os.getenv("ANTHROPIC_API_KEY"):
             provider = LLMProvider.ANTHROPIC  
             model = "claude-3-haiku-20240307"
-        elif os.getenv("GEMINI_API_KEY"):
-            # Would need to add Gemini provider to llm_bridge.py
-            provider = LLMProvider.MOCK
-            model = "mock-model"
         else:
-            provider = LLMProvider.MOCK
-            model = "mock-model"
+            raise ValueError("No API keys found. Please set OPENAI_API_KEY or ANTHROPIC_API_KEY in .env file")
         
         config = LLMConfig(provider=provider, model=model)
         return LLMBridge(config)
@@ -476,7 +471,7 @@ def main():
     )
     parser.add_argument(
         "--provider",
-        choices=["openai", "anthropic", "mock"],
+        choices=["openai", "anthropic"],
         help="LLM provider to use"
     )
     parser.add_argument(
@@ -491,15 +486,21 @@ def main():
     
     args = parser.parse_args()
     
-    # Initialize CLI
-    cli = PromptKraftCLI()
+    try:
+        # Initialize CLI (requires API keys)
+        cli = PromptKraftCLI()
+    except ValueError as e:
+        print(f"\n⚠ Error: {e}")
+        print("\nPlease ensure you have API keys set up in .env file:")
+        print("  OPENAI_API_KEY=your-key-here")
+        print("  ANTHROPIC_API_KEY=your-key-here")
+        return
     
     # Override provider if specified
     if args.provider:
         provider_map = {
             "openai": LLMProvider.OPENAI,
-            "anthropic": LLMProvider.ANTHROPIC,
-            "mock": LLMProvider.MOCK
+            "anthropic": LLMProvider.ANTHROPIC
         }
         cli.llm_bridge.switch_provider(provider_map[args.provider])
     

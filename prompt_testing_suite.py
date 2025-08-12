@@ -76,15 +76,15 @@ class PromptTestHarness:
         self.performance_baselines: Dict[str, float] = {}
         self.test_contexts = self._generate_test_contexts()
         
-        # Initialize LLM Bridge
+        # Initialize LLM Bridge - requires real API keys
         if llm_provider is None:
-            # Default to mock for testing, but check for API keys
+            # Auto-detect from available API keys
             if os.getenv("OPENAI_API_KEY"):
                 llm_provider = LLMProvider.OPENAI
             elif os.getenv("ANTHROPIC_API_KEY"):
                 llm_provider = LLMProvider.ANTHROPIC
             else:
-                llm_provider = LLMProvider.MOCK
+                raise ValueError("No API keys found. Please set OPENAI_API_KEY or ANTHROPIC_API_KEY in .env file")
         
         self.llm_config = LLMConfig(
             provider=llm_provider,
@@ -451,29 +451,22 @@ class PromptTestHarness:
         return report
     
     def _execute_prompt(self, prompt: str, context: TestContext) -> str:
-        """Execute prompt with real LLM or mock"""
-        try:
-            # Adjust LLM parameters based on context
-            self.llm_bridge.config.temperature = context.temperature
-            
-            # Add context information to prompt if needed
-            if context.noise_level > 0:
-                prompt = f"[Context: {context.domain}, Complexity: {context.complexity}]\n{prompt}"
-            
-            # Execute through LLM Bridge
-            response = self.llm_bridge.execute_prompt(
-                prompt,
-                temperature=context.temperature,
-                max_tokens=500
-            )
-            
-            return response.content
-            
-        except Exception as e:
-            # Fallback to deterministic output on error
-            print(f"LLM execution error, using fallback: {e}")
-            seed = hashlib.md5(f"{prompt}{context.domain}{context.complexity}".encode()).hexdigest()
-            return f"[Fallback-{seed[:8]}] Response for: {prompt[:30]}"
+        """Execute prompt with real LLM"""
+        # Adjust LLM parameters based on context
+        self.llm_bridge.config.temperature = context.temperature
+        
+        # Add context information to prompt if needed
+        if context.noise_level > 0:
+            prompt = f"[Context: {context.domain}, Complexity: {context.complexity}]\n{prompt}"
+        
+        # Execute through LLM Bridge
+        response = self.llm_bridge.execute_prompt(
+            prompt,
+            temperature=context.temperature,
+            max_tokens=500
+        )
+        
+        return response.content
     
     def _calculate_similarity(self, text1: str, text2: str) -> float:
         """Calculate similarity between two texts"""
@@ -658,12 +651,19 @@ def main():
     print("Rigorous Validation of Operational Prompts")
     print("═" * 60)
     
-    # Initialize test harness (will auto-detect provider from env)
-    harness = PromptTestHarness(base_path=Path("."))
-    
-    print(f"\nUsing LLM Provider: {harness.llm_config.provider.value}")
-    print(f"Model: {harness.llm_config.model}")
-    print("-" * 60)
+    try:
+        # Initialize test harness (requires API keys)
+        harness = PromptTestHarness(base_path=Path("."))
+        
+        print(f"\nUsing LLM Provider: {harness.llm_config.provider.value}")
+        print(f"Model: {harness.llm_config.model}")
+        print("-" * 60)
+    except ValueError as e:
+        print(f"\n⚠ Error: {e}")
+        print("\nPlease set up your API keys in the .env file:")
+        print("  OPENAI_API_KEY=your-key-here")
+        print("  ANTHROPIC_API_KEY=your-key-here")
+        return
     
     # Test prompts
     test_prompts = [
