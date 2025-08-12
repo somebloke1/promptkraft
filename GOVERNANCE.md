@@ -62,3 +62,7 @@ Use Ordinal Recurrence:
 - Better Approach: Cycle β occurs every 5-7 α completions, γ every 4-6 β, etc.
 - Be honest about logical sequence without fabricating timelines
 </recurrence_specification>
+
+<git_use_guidance>
+- DO_NOT make cite AI as a contributor. User is not an ad agency.
+</git_use_guidance>

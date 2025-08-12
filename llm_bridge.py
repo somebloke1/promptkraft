@@ -94,12 +94,24 @@ class BaseLLMProvider(ABC):
         """Calculate API cost based on token usage"""
         # Pricing as of 2024 (prices per 1K tokens)
         pricing = {
+            # OpenAI models
             "gpt-3.5-turbo": {"prompt": 0.0005, "completion": 0.0015},
             "gpt-4": {"prompt": 0.03, "completion": 0.06},
             "gpt-4-turbo": {"prompt": 0.01, "completion": 0.03},
+            "gpt-4o": {"prompt": 0.005, "completion": 0.015},
+            "gpt-4o-mini": {"prompt": 0.00015, "completion": 0.0006},
+            
+            # Anthropic models
             "claude-3-opus": {"prompt": 0.015, "completion": 0.075},
             "claude-3-sonnet": {"prompt": 0.003, "completion": 0.015},
             "claude-3-haiku": {"prompt": 0.00025, "completion": 0.00125},
+            "claude-3-5-sonnet": {"prompt": 0.003, "completion": 0.015},
+            "claude-3-5-haiku": {"prompt": 0.001, "completion": 0.005},
+            
+            # Future/hypothetical models (estimated pricing)
+            "claude-3-7-sonnet": {"prompt": 0.004, "completion": 0.020},
+            "claude-4-sonnet": {"prompt": 0.005, "completion": 0.025},
+            "claude-4-1-opus": {"prompt": 0.020, "completion": 0.100},
         }
         
         model_pricing = pricing.get(model, pricing["gpt-3.5-turbo"])
