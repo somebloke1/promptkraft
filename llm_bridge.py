@@ -8,6 +8,7 @@ import os
 import json
 import time
 import hashlib
+import requests
 from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass, field
 from enum import Enum
@@ -49,6 +50,10 @@ class LLMConfig:
                 self.api_key = os.getenv("OPENAI_API_KEY")
             elif self.provider == LLMProvider.ANTHROPIC:
                 self.api_key = os.getenv("ANTHROPIC_API_KEY")
+            elif self.provider == LLMProvider.GEMINI:
+                self.api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+            elif self.provider == LLMProvider.XAI:
+                self.api_key = os.getenv("XAI_API_KEY")
 
 
 @dataclass
@@ -117,6 +122,17 @@ class BaseLLMProvider(ABC):
             
             # Claude 4.1 family (August 2025)  
             "claude-opus-4-1": {"prompt": 0.015, "completion": 0.075},  # Same as Opus 4
+            
+            # Gemini models (prices per 1K tokens)
+            "gemini-1.0-pro": {"prompt": 0.0005, "completion": 0.0015},
+            "gemini-1.5-pro": {"prompt": 0.00175, "completion": 0.007},
+            "gemini-1.5-flash": {"prompt": 0.00015, "completion": 0.0006},
+            "gemini-2.0-flash-exp": {"prompt": 0.0, "completion": 0.0},  # Experimental, free tier
+            
+            # X.AI Grok models (estimated pricing)
+            "grok-1": {"prompt": 0.005, "completion": 0.015},
+            "grok-2": {"prompt": 0.002, "completion": 0.006},
+            "grok-beta": {"prompt": 0.001, "completion": 0.003},
         }
         
         model_pricing = pricing.get(model, pricing["gpt-3.5-turbo"])
@@ -290,6 +306,334 @@ class AnthropicProvider(BaseLLMProvider):
             raise
 
 
+class GeminiProvider(BaseLLMProvider):
+    """Google Gemini API provider"""
+    
+    def __init__(self, config: LLMConfig):
+        super().__init__(config)
+        try:
+            import google.generativeai as genai
+            
+            # Use GEMINI_API_KEY first, fallback to GOOGLE_API_KEY
+            api_key = config.api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+            if not api_key:
+                raise ValueError("No Gemini/Google API key found")
+            
+            genai.configure(api_key=api_key)
+            
+            # Initialize the model
+            self.model = genai.GenerativeModel(config.model)
+            self.genai = genai
+            
+            logger.info(f"Initialized Gemini provider with model: {config.model}")
+            
+        except ImportError:
+            logger.error("Google GenerativeAI library not installed. Install with: pip install google-generativeai")
+            raise
+    
+    def _convert_messages_to_gemini_format(self, messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
+        """Convert OpenAI-style messages to Gemini format"""
+        gemini_messages = []
+        
+        for msg in messages:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            
+            # Gemini uses 'user' and 'model' as roles
+            if role == "assistant":
+                role = "model"
+            elif role == "system":
+                # Gemini doesn't have a system role, prepend to first user message
+                if not gemini_messages:
+                    gemini_messages.append({"role": "user", "parts": [content]})
+                    continue
+                else:
+                    # Add as user message
+                    role = "user"
+            
+            gemini_messages.append({"role": role, "parts": [content]})
+        
+        return gemini_messages
+    
+    def complete(self, prompt: str, **kwargs) -> LLMResponse:
+        """Generate completion using Gemini API"""
+        start_time = time.time()
+        
+        try:
+            # Configure generation parameters
+            generation_config = self.genai.types.GenerationConfig(
+                temperature=kwargs.get("temperature", self.config.temperature),
+                max_output_tokens=kwargs.get("max_tokens", self.config.max_tokens),
+                top_p=kwargs.get("top_p", self.config.top_p),
+            )
+            
+            # Configure safety settings (set to block only high-risk content)
+            safety_settings = [
+                {
+                    "category": "HARM_CATEGORY_HARASSMENT",
+                    "threshold": "BLOCK_ONLY_HIGH"
+                },
+                {
+                    "category": "HARM_CATEGORY_HATE_SPEECH",
+                    "threshold": "BLOCK_ONLY_HIGH"
+                },
+                {
+                    "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                    "threshold": "BLOCK_ONLY_HIGH"
+                },
+                {
+                    "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                    "threshold": "BLOCK_ONLY_HIGH"
+                },
+            ]
+            
+            # Generate response
+            response = self.model.generate_content(
+                prompt,
+                generation_config=generation_config,
+                safety_settings=safety_settings
+            )
+            
+            latency = time.time() - start_time
+            
+            # Extract content
+            if response.text:
+                content = response.text
+            else:
+                content = "No response generated (possible safety filter)"
+                logger.warning(f"Gemini response blocked or empty: {response}")
+            
+            # Use native token counting if available
+            prompt_tokens = self.model.count_tokens(prompt).total_tokens if hasattr(self.model, 'count_tokens') else self.estimate_tokens(prompt)
+            completion_tokens = self.model.count_tokens(content).total_tokens if hasattr(self.model, 'count_tokens') else self.estimate_tokens(content)
+            
+            return LLMResponse(
+                content=content,
+                provider=LLMProvider.GEMINI,
+                model=self.config.model,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=prompt_tokens + completion_tokens,
+                latency=latency,
+                cost=self.calculate_cost(prompt_tokens, completion_tokens, self.config.model),
+                metadata={
+                    "finish_reason": response.candidates[0].finish_reason.name if response.candidates else "UNKNOWN",
+                    "safety_ratings": [
+                        {"category": rating.category.name, "probability": rating.probability.name}
+                        for rating in response.candidates[0].safety_ratings
+                    ] if response.candidates and response.candidates[0].safety_ratings else []
+                }
+            )
+            
+        except Exception as e:
+            logger.error(f"Gemini API error: {e}")
+            raise
+    
+    def chat(self, messages: List[Dict[str, str]], **kwargs) -> LLMResponse:
+        """Generate chat completion using Gemini API"""
+        start_time = time.time()
+        
+        try:
+            # Convert messages to Gemini format
+            gemini_messages = self._convert_messages_to_gemini_format(messages)
+            
+            # Configure generation parameters
+            generation_config = self.genai.types.GenerationConfig(
+                temperature=kwargs.get("temperature", self.config.temperature),
+                max_output_tokens=kwargs.get("max_tokens", self.config.max_tokens),
+                top_p=kwargs.get("top_p", self.config.top_p),
+            )
+            
+            # Configure safety settings
+            safety_settings = [
+                {
+                    "category": "HARM_CATEGORY_HARASSMENT",
+                    "threshold": "BLOCK_ONLY_HIGH"
+                },
+                {
+                    "category": "HARM_CATEGORY_HATE_SPEECH",
+                    "threshold": "BLOCK_ONLY_HIGH"
+                },
+                {
+                    "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                    "threshold": "BLOCK_ONLY_HIGH"
+                },
+                {
+                    "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                    "threshold": "BLOCK_ONLY_HIGH"
+                },
+            ]
+            
+            # Start or continue chat
+            chat = self.model.start_chat(history=gemini_messages[:-1] if len(gemini_messages) > 1 else [])
+            
+            # Send the last message
+            last_message = gemini_messages[-1]["parts"][0] if gemini_messages else ""
+            response = chat.send_message(
+                last_message,
+                generation_config=generation_config,
+                safety_settings=safety_settings
+            )
+            
+            latency = time.time() - start_time
+            
+            # Extract content
+            if response.text:
+                content = response.text
+            else:
+                content = "No response generated (possible safety filter)"
+                logger.warning(f"Gemini chat response blocked or empty: {response}")
+            
+            # Calculate tokens
+            prompt_text = " ".join([msg["parts"][0] for msg in gemini_messages])
+            prompt_tokens = self.model.count_tokens(prompt_text).total_tokens if hasattr(self.model, 'count_tokens') else self.estimate_tokens(prompt_text)
+            completion_tokens = self.model.count_tokens(content).total_tokens if hasattr(self.model, 'count_tokens') else self.estimate_tokens(content)
+            
+            return LLMResponse(
+                content=content,
+                provider=LLMProvider.GEMINI,
+                model=self.config.model,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=prompt_tokens + completion_tokens,
+                latency=latency,
+                cost=self.calculate_cost(prompt_tokens, completion_tokens, self.config.model),
+                metadata={
+                    "finish_reason": response.candidates[0].finish_reason.name if response.candidates else "UNKNOWN",
+                    "safety_ratings": [
+                        {"category": rating.category.name, "probability": rating.probability.name}
+                        for rating in response.candidates[0].safety_ratings
+                    ] if response.candidates and response.candidates[0].safety_ratings else []
+                }
+            )
+            
+        except Exception as e:
+            logger.error(f"Gemini Chat API error: {e}")
+            raise
+    
+    def estimate_tokens(self, text: str) -> int:
+        """Use Gemini's native token counting when available"""
+        try:
+            return self.model.count_tokens(text).total_tokens
+        except:
+            # Fallback to base estimation
+            return super().estimate_tokens(text)
+
+
+class XAIProvider(BaseLLMProvider):
+    """X.AI (Grok) API provider using OpenAI-compatible REST API"""
+    
+    def __init__(self, config: LLMConfig):
+        super().__init__(config)
+        import requests
+        
+        self.api_key = config.api_key or os.getenv("XAI_API_KEY")
+        if not self.api_key:
+            raise ValueError("No X.AI API key found")
+        
+        self.base_url = "https://api.x.ai/v1"
+        self.headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        # For making HTTP requests
+        self.requests = requests
+        
+        logger.info(f"Initialized X.AI provider with model: {config.model}")
+    
+    def _make_request(self, endpoint: str, data: dict, retry_count: int = 0) -> dict:
+        """Make HTTP request to X.AI API with retry logic"""
+        url = f"{self.base_url}/{endpoint}"
+        
+        try:
+            response = self.requests.post(
+                url,
+                json=data,
+                headers=self.headers,
+                timeout=self.config.timeout
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            elif response.status_code == 429 and retry_count < self.config.retry_attempts:
+                # Rate limited, retry with exponential backoff
+                wait_time = self.config.retry_delay * (2 ** retry_count)
+                logger.warning(f"Rate limited, retrying in {wait_time}s...")
+                time.sleep(wait_time)
+                return self._make_request(endpoint, data, retry_count + 1)
+            else:
+                error_msg = f"X.AI API error: {response.status_code} - {response.text}"
+                logger.error(error_msg)
+                raise Exception(error_msg)
+                
+        except self.requests.exceptions.Timeout:
+            if retry_count < self.config.retry_attempts:
+                logger.warning(f"Request timeout, retrying... (attempt {retry_count + 1})")
+                return self._make_request(endpoint, data, retry_count + 1)
+            else:
+                raise Exception("X.AI API request timeout after retries")
+        except Exception as e:
+            logger.error(f"X.AI API request failed: {e}")
+            raise
+    
+    def complete(self, prompt: str, **kwargs) -> LLMResponse:
+        """Generate completion using X.AI API"""
+        # X.AI uses chat format, so convert prompt to messages
+        messages = [{"role": "user", "content": prompt}]
+        return self.chat(messages, **kwargs)
+    
+    def chat(self, messages: List[Dict[str, str]], **kwargs) -> LLMResponse:
+        """Generate chat completion using X.AI API (OpenAI-compatible)"""
+        start_time = time.time()
+        
+        try:
+            # Prepare request data (OpenAI-compatible format)
+            data = {
+                "model": self.config.model,
+                "messages": messages,
+                "temperature": kwargs.get("temperature", self.config.temperature),
+                "max_tokens": kwargs.get("max_tokens", self.config.max_tokens),
+                "top_p": kwargs.get("top_p", self.config.top_p),
+                "frequency_penalty": kwargs.get("frequency_penalty", self.config.frequency_penalty),
+                "presence_penalty": kwargs.get("presence_penalty", self.config.presence_penalty),
+                "stream": False
+            }
+            
+            # Make API request
+            response = self._make_request("chat/completions", data)
+            
+            latency = time.time() - start_time
+            
+            # Extract response data (OpenAI-compatible format)
+            content = response["choices"][0]["message"]["content"]
+            
+            # Token usage
+            usage = response.get("usage", {})
+            prompt_tokens = usage.get("prompt_tokens", self.estimate_tokens(str(messages)))
+            completion_tokens = usage.get("completion_tokens", self.estimate_tokens(content))
+            total_tokens = usage.get("total_tokens", prompt_tokens + completion_tokens)
+            
+            return LLMResponse(
+                content=content,
+                provider=LLMProvider.XAI,
+                model=self.config.model,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=total_tokens,
+                latency=latency,
+                cost=self.calculate_cost(prompt_tokens, completion_tokens, self.config.model),
+                metadata={
+                    "finish_reason": response["choices"][0].get("finish_reason", "unknown"),
+                    "model_used": response.get("model", self.config.model)
+                }
+            )
+            
+        except Exception as e:
+            logger.error(f"X.AI Chat API error: {e}")
+            raise
+
+
 
 
 class LLMBridge:
@@ -327,11 +671,9 @@ class LLMBridge:
         elif self.config.provider == LLMProvider.ANTHROPIC:
             return AnthropicProvider(self.config)
         elif self.config.provider == LLMProvider.GEMINI:
-            # Would need GeminiProvider implementation
-            raise NotImplementedError("Gemini provider not yet implemented. Use OpenAI or Anthropic.")
+            return GeminiProvider(self.config)
         elif self.config.provider == LLMProvider.XAI:
-            # Would need XAIProvider implementation
-            raise NotImplementedError("X.AI provider not yet implemented. Use OpenAI or Anthropic.")
+            return XAIProvider(self.config)
         else:
             raise ValueError(f"Unsupported provider: {self.config.provider}")
     
@@ -429,12 +771,6 @@ class LLMBridge:
     def switch_provider(self, provider: LLMProvider, api_key: Optional[str] = None):
         """Switch to a different LLM provider"""
         logger.info(f"Switching from {self.config.provider.value} to {provider.value}")
-        
-        if provider not in [LLMProvider.OPENAI, LLMProvider.ANTHROPIC]:
-            if provider == LLMProvider.GEMINI:
-                raise NotImplementedError("Gemini provider not yet implemented")
-            elif provider == LLMProvider.XAI:
-                raise NotImplementedError("X.AI provider not yet implemented")
         
         self.config.provider = provider
         if api_key:

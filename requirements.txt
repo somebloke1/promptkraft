@@ -9,7 +9,7 @@ openai>=1.0.0
 anthropic>=0.18.0
 
 # Optional providers (uncomment as needed)
-# google-generativeai>=0.3.0  # For Gemini support
+google-generativeai>=0.3.0  # For Gemini support
 # replicate>=0.15.0           # For open source models
 
 # Testing and development
