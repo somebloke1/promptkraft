@@ -20,23 +20,15 @@ PROVIDER_MODELS = {
         "gpt-4o-mini",
     ],
     LLMProvider.ANTHROPIC: [
-        # Claude 3 family
-        "claude-3-opus-20240229",
-        "claude-3-sonnet-20240229",  # Deprecated
-        "claude-3-haiku-20240307",
+        # Claude 3.7 family (minimum supported version)
+        "claude-3-7-sonnet-latest",
         
-        # Claude 3.5 family (latest)
-        "claude-3-5-sonnet-20241022",  # Latest upgraded version
-        "claude-3-5-haiku-20241022",
+        # Claude 4 family (May 2025)
+        "claude-opus-4-20250514",      # Claude Opus 4
+        "claude-sonnet-4-20250514",    # Claude Sonnet 4
         
-        # Aliases for latest versions
-        "claude-3-5-sonnet-latest",
-        "claude-3-opus-latest",
-        
-        # Future models (placeholders - may not work yet)
-        "claude-3-7-sonnet-latest",  # Hypothetical future model
-        "claude-4-sonnet-latest",     # Hypothetical future model
-        "claude-4-1-opus-latest",     # Hypothetical future model
+        # Claude 4.1 family (August 2025)
+        "claude-opus-4-1-20250805",    # Claude Opus 4.1 (latest)
     ],
     LLMProvider.GEMINI: [
         "gemini-1.0-pro",

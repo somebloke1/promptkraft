@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-PromptKraft has access to **4 language model providers** with **18 total models** configured, of which **11 models are currently operational** and **7 are pending implementation**.
+PromptKraft has access to **4 language model providers** with **15 total models** configured, of which **11 models are currently operational** and **7 are pending implementation**.
 
 ## Provider Status
 
@@ -38,24 +38,21 @@ PromptKraft has access to **4 language model providers** with **18 total models*
 
 ## Complete Model Inventory
 
-### Working Models (14)
+### Working Models (11)
 
 | Provider | Model | Latency | Status |
 |----------|-------|---------|--------|
 | OpenAI | gpt-3.5-turbo | 1.37s | ✅ Working |
-| OpenAI | gpt-3.5-turbo-16k | 1.39s | ✅ Working |
-| OpenAI | gpt-4 | 2.47s | ✅ Working |
-| OpenAI | gpt-4-turbo | 1.69s | ✅ Working |
-| OpenAI | gpt-4-turbo-preview | 2.23s | ✅ Working |
-| OpenAI | gpt-4o | 1.71s | ✅ Working |
-| OpenAI | gpt-4o-mini | 1.70s | ✅ Working |
-| Anthropic | claude-3-opus-20240229 | 2.43s | ✅ Working |
-| Anthropic | claude-3-haiku-20240307 | 0.70s | ✅ Working (Fastest) |
-| Anthropic | claude-3-5-sonnet-20241022 | 1.89s | ✅ Working |
-| Anthropic | claude-3-5-haiku-20241022 | 1.60s | ✅ Working |
-| Anthropic | claude-3-5-sonnet-latest | 1.65s | ✅ Working |
-| Anthropic | claude-3-opus-latest | 2.59s | ✅ Working |
-| Anthropic | claude-3-7-sonnet-latest | 1.54s | ✅ Working (New!) |
+| OpenAI | gpt-3.5-turbo-16k | 0.95s | ✅ Working |
+| OpenAI | gpt-4 | 2.11s | ✅ Working |
+| OpenAI | gpt-4-turbo | 3.43s | ✅ Working |
+| OpenAI | gpt-4-turbo-preview | 1.87s | ✅ Working |
+| OpenAI | gpt-4o | 1.66s | ✅ Working |
+| OpenAI | gpt-4o-mini | 1.79s | ✅ Working |
+| Anthropic | claude-3-7-sonnet-latest | 3.14s | ✅ Working (Claude 3.7) |
+| Anthropic | claude-opus-4-20250514 | 5.32s | ✅ Working (Claude 4 - May 2025) |
+| Anthropic | claude-sonnet-4-20250514 | 1.88s | ✅ Working (Claude 4 - May 2025) |
+| Anthropic | claude-opus-4-1-20250805 | 3.30s | ✅ Working (Claude 4.1 - August 2025) |
 
 ### Not Implemented (7)
 
@@ -69,13 +66,9 @@ PromptKraft has access to **4 language model providers** with **18 total models*
 | X.AI | grok-2 | ⚠️ Provider not implemented |
 | X.AI | grok-beta | ⚠️ Provider not implemented |
 
-### Deprecated/Unavailable (3)
+### Note on Older Models
 
-| Provider | Model | Status |
-|----------|-------|--------|
-| Anthropic | claude-3-sonnet-20240229 | ❌ 404 Error - Model no longer available |
-| Anthropic | claude-4-sonnet-latest | ❌ 404 Error - Model not yet available |
-| Anthropic | claude-4-1-opus-latest | ❌ 404 Error - Model not yet available |
+Claude models prior to 3.7 (including Claude 3, 3.5 families) have been removed from the testing suite as per user preference to only support Claude 3.7 and newer.
 
 ## Additional API Keys Found
 
@@ -89,16 +82,16 @@ The system also has these API keys configured but not integrated:
 ## Usage Recommendations
 
 ### For Speed
-- **Primary**: claude-3-haiku-20240307 (0.70s)
-- **Secondary**: gpt-3.5-turbo (1.37s)
+- **Primary**: gpt-3.5-turbo-16k (0.95s)
+- **Secondary**: claude-sonnet-4-20250514 (1.88s)
 
 ### For Capability
-- **Primary**: claude-3-opus-20240229, claude-3-5-sonnet-20241022
-- **Secondary**: gpt-4, gpt-4-turbo, gpt-4o
+- **Primary**: claude-opus-4-1-20250805 (Latest, 74.5% SWE-bench)
+- **Secondary**: claude-opus-4-20250514, gpt-4, gpt-4-turbo
 
 ### For Cost Efficiency
-- **Primary**: claude-3-haiku-20240307
-- **Secondary**: gpt-3.5-turbo, gpt-4o-mini
+- **Primary**: gpt-3.5-turbo, gpt-3.5-turbo-16k
+- **Secondary**: gpt-4o-mini, claude-sonnet-4-20250514
 
 ## Implementation Notes
 
@@ -139,16 +132,28 @@ uv run python test_all_models.py
 ## Summary Statistics
 
 - **Total Providers**: 4 configured (2 working, 2 pending)
-- **Total Models**: 21 configured
-- **Working Models**: 14 (67%)
-- **Pending Implementation**: 7 (33%)
-- **Deprecated/Unavailable**: 3
+- **Total Models**: 18 configured
+- **Working Models**: 11 (61%)
+- **Pending Implementation**: 7 (39%)
+- **Minimum Claude Version**: 3.7
 - **Average Latency**: 1.65s across all working models
 - **Fastest Response**: 0.63s (claude-3-haiku-20240307)
 - **API Keys Available**: 8 total (4 LLM, 4 auxiliary services)
 
 ## Latest Discoveries
 
-- **claude-3-7-sonnet-latest**: Surprisingly working! This appears to be an unannounced or early-access model
-- **claude-3-5-sonnet-latest** and **claude-3-opus-latest**: Working aliases that point to latest versions
-- **claude-4-sonnet-latest** and **claude-4-1-opus-latest**: Not yet available (404 errors)
+### Claude 4 Family (May 2025)
+- **claude-opus-4-20250514**: Claude Opus 4 - $15/$75 per million tokens
+- **claude-sonnet-4-20250514**: Claude Sonnet 4 - Faster, more affordable
+
+### Claude 4.1 (August 2025)
+- **claude-opus-4-1-20250805**: Latest and most capable model
+  - 74.5% on SWE-bench Verified (state-of-the-art)
+  - Same pricing as Opus 4 ($15/$75 per million)
+  - Requires special handling: Cannot use both temperature and top_p
+  - 200K context window, 32K max output
+  - Extended thinking: up to 64K tokens for complex reasoning
+
+### Other Models
+- **claude-3-7-sonnet-latest**: Working model, possibly unannounced
+- **claude-3-5-sonnet-latest** and **claude-3-opus-latest**: Aliases for latest versions

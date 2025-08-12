@@ -108,10 +108,15 @@ class BaseLLMProvider(ABC):
             "claude-3-5-sonnet": {"prompt": 0.003, "completion": 0.015},
             "claude-3-5-haiku": {"prompt": 0.001, "completion": 0.005},
             
-            # Future/hypothetical models (estimated pricing)
-            "claude-3-7-sonnet": {"prompt": 0.004, "completion": 0.020},
-            "claude-4-sonnet": {"prompt": 0.005, "completion": 0.025},
-            "claude-4-1-opus": {"prompt": 0.020, "completion": 0.100},
+            # Claude 3.7 family
+            "claude-3-7-sonnet": {"prompt": 0.003, "completion": 0.015},
+            
+            # Claude 4 family (May 2025)
+            "claude-opus-4": {"prompt": 0.015, "completion": 0.075},  # $15/$75 per million
+            "claude-sonnet-4": {"prompt": 0.003, "completion": 0.015},
+            
+            # Claude 4.1 family (August 2025)  
+            "claude-opus-4-1": {"prompt": 0.015, "completion": 0.075},  # Same as Opus 4
         }
         
         model_pricing = pricing.get(model, pricing["gpt-3.5-turbo"])
@@ -245,13 +250,21 @@ class AnthropicProvider(BaseLLMProvider):
                 role = "user" if msg["role"] == "user" else "assistant"
                 anthropic_messages.append({"role": role, "content": msg["content"]})
             
-            response = self.client.messages.create(
-                model=self.config.model,
-                messages=anthropic_messages,
-                temperature=kwargs.get("temperature", self.config.temperature),
-                max_tokens=kwargs.get("max_tokens", self.config.max_tokens),
-                top_p=kwargs.get("top_p", self.config.top_p),
-            )
+            # Opus 4.1 doesn't accept both temperature and top_p
+            create_params = {
+                "model": self.config.model,
+                "messages": anthropic_messages,
+                "max_tokens": kwargs.get("max_tokens", self.config.max_tokens),
+            }
+            
+            # For Opus 4.1, use only temperature (not top_p)
+            if "opus-4-1" in self.config.model:
+                create_params["temperature"] = kwargs.get("temperature", self.config.temperature)
+            else:
+                create_params["temperature"] = kwargs.get("temperature", self.config.temperature)
+                create_params["top_p"] = kwargs.get("top_p", self.config.top_p)
+            
+            response = self.client.messages.create(**create_params)
             
             latency = time.time() - start_time
             content = response.content[0].text
