@@ -95,8 +95,9 @@ class Operation:
 class SelfEvolvingUnity:
     """The unity that conducts its own operational symphony"""
     
-    def __init__(self, base_path: Path = Path(".")):
+    def __init__(self, base_path: Path = Path("."), llm_bridge=None):
         self.base_path = base_path
+        self.llm_bridge = llm_bridge  # Optional LLM bridge for real evaluations
         self.operations: Dict[OperationType, Operation] = {}
         self.material_library: List[PromptMaterial] = []
         self.evolution_history: List[Dict] = []
@@ -169,44 +170,141 @@ class SelfEvolvingUnity:
     
     def invoke_describing(self, input_data: Any) -> str:
         """Invoke the describing operation"""
+        if self.llm_bridge:
+            # Use real LLM for describing
+            prompt = f"""≡ I am careful scribing ≡ de-scribere - recording exactly what appears.
+Like a court reporter, I capture without addition or interpretation.
+
+What appears before me: {input_data}
+≡ Direct observation without projection or interpretation:"""
+            response = self.llm_bridge.execute_prompt(prompt, temperature=0.3)
+            return response.content
         return self.operations[OperationType.DESCRIBING].execute(input_data)
     
     def invoke_inquiring(self, described_data: str) -> List[str]:
         """Invoke the inquiring operation"""
+        if self.llm_bridge:
+            # Use real LLM for inquiring
+            prompt = f"""? I am seeking-into ? in-quaerere - opening genuine questions.
+Like Socrates, I know that I do not know, and seek through questioning.
+
+From what I have described: {described_data}
+? What questions open understanding here? Generate 3-5 probing questions:"""
+            response = self.llm_bridge.execute_prompt(prompt, temperature=0.7)
+            # Parse questions from response (split by newlines or question marks)
+            questions = [q.strip() for q in response.content.split('\n') if q.strip() and '?' in q]
+            return questions if questions else [response.content]
         result = self.operations[OperationType.INQUIRING].execute(described_data)
-        # In production, parse actual questions from LLM response
         return [result]
     
     def invoke_formulating(self, questions: List[str]) -> str:
         """Invoke the formulating operation"""
+        if self.llm_bridge:
+            # Use real LLM for formulating
+            questions_str = '\n'.join(questions) if isinstance(questions, list) else questions
+            prompt = f"""! I am giving-form-to-insight ! - shaping what emerges from inquiry.
+Like Archimedes, I recognize patterns that suddenly crystallize.
+
+From these questions: {questions_str}
+! What understanding is taking shape? Articulate the emerging insight:"""
+            response = self.llm_bridge.execute_prompt(prompt, temperature=0.8)
+            return response.content
         return self.operations[OperationType.FORMULATING].execute(questions)
     
     def invoke_reflecting(self, insight: str) -> Dict[str, Any]:
         """Invoke the reflecting operation"""
+        if self.llm_bridge:
+            # Use real LLM for reflecting
+            prompt = f"""⇔ I am bending-back-to-examine ⇔ re-flectere kritikos - testing what withstands scrutiny.
+Like Athena's owl, I see clearly through assumptions.
+
+Examining this insight: {insight}
+⇔ What evidence supports this? What challenges it? What are the implications?
+
+Provide:
+1. Evidence FOR:
+2. Evidence AGAINST:
+3. Hidden assumptions:
+4. Implications if true:"""
+            response = self.llm_bridge.execute_prompt(prompt, temperature=0.5)
+            return {"reflection": response.content, "evidence_for": [], "evidence_against": []}
         result = self.operations[OperationType.REFLECTING].execute(insight)
-        # In production, parse structured reflection
         return {"reflection": result, "evidence_for": [], "evidence_against": []}
     
     def invoke_judging(self, reflection: Dict[str, Any]) -> Dict[str, Any]:
         """Invoke the judging operation"""
+        if self.llm_bridge:
+            # Use real LLM for judging
+            reflection_str = reflection.get('reflection', str(reflection))
+            prompt = f"""⊢⊬~ I am weighing-to-determine ⊢⊬~ judicium - deciding what evidence shows.
+Like Solomon with scales, I weigh what has been examined.
+
+Based on critical reflection: {reflection_str}
+
+Provide judgment:
+⊢ AFFIRM (if evidence strongly supports)
+⊬ NEGATE (if evidence contradicts)
+~ QUALIFY (if partially true with conditions)
+
+Judgment with reasoning:"""
+            response = self.llm_bridge.execute_prompt(prompt, temperature=0.4)
+            # Parse confidence from response
+            confidence = 0.8 if '⊢' in response.content else 0.5 if '~' in response.content else 0.2
+            return {"judgment": response.content, "confidence": confidence}
         result = self.operations[OperationType.JUDGING].execute(reflection)
-        # In production, parse structured judgment
         return {"judgment": result, "confidence": 0.0}
     
     def invoke_deliberating(self, judgment: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Invoke the deliberating operation"""
+        if self.llm_bridge:
+            # Use real LLM for deliberating
+            judgment_str = judgment.get('judgment', str(judgment))
+            prompt = f"""⚖️ I am careful-weighing ⚖️ de-liberare - considering possible actions.
+Like a wise counselor, I weigh courses thoughtfully.
+
+From validated judgments: {judgment_str}
+⚖️ What actions could follow? List 2-3 possible courses of action with consequences:"""
+            response = self.llm_bridge.execute_prompt(prompt, temperature=0.6)
+            # Parse options from response
+            options = response.content.split('\n\n') if '\n\n' in response.content else [response.content]
+            return [{"option": opt.strip(), "consequences": []} for opt in options if opt.strip()]
         result = self.operations[OperationType.DELIBERATING].execute(judgment)
-        # In production, parse structured options
         return [{"option": result, "consequences": []}]
     
     def invoke_deciding(self, options: List[Dict[str, Any]]) -> str:
         """Invoke the deciding operation"""
+        if self.llm_bridge:
+            # Use real LLM for deciding
+            options_str = '\n'.join([f"- {opt.get('option', str(opt))}" for opt in options])
+            prompt = f"""→ I am cutting-to-resolve → de-cidere - choosing the course to be taken.
+Like a commander, I cut through possibilities to decisive action.
+
+From deliberated options:
+{options_str}
+
+→ CHOSEN COURSE with clear rationale for this decision:"""
+            response = self.llm_bridge.execute_prompt(prompt, temperature=0.3)
+            return response.content
         return self.operations[OperationType.DECIDING].execute(options)
     
     def invoke_planning(self, decision: str) -> List[str]:
         """Invoke the planning operation"""
+        if self.llm_bridge:
+            # Use real LLM for planning
+            prompt = f"""═══► I am drawing-the-path ═══► planus - organizing decision into executable steps.
+Like an architect, I layout the pathway to completion.
+
+From decided course: {decision}
+═══► Sequential steps to implement this decision:
+1. First:
+2. Then:
+3. Next:
+4. Complete when:"""
+            response = self.llm_bridge.execute_prompt(prompt, temperature=0.4)
+            # Parse steps from response
+            steps = [s.strip() for s in response.content.split('\n') if s.strip() and any(c in s for c in ['1.', '2.', '3.', '4.', '-', '•'])]
+            return steps if steps else [response.content]
         result = self.operations[OperationType.PLANNING].execute(decision)
-        # In production, parse structured plan
         return [result]
     
     def discover_material(self, source: str) -> PromptMaterial:

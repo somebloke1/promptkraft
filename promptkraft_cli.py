@@ -32,8 +32,8 @@ class PromptKraftCLI:
     """Interactive CLI for prompt craftsmanship"""
     
     def __init__(self):
-        self.unity = SelfEvolvingUnity()
         self.llm_bridge = self._initialize_llm()
+        self.unity = SelfEvolvingUnity(llm_bridge=self.llm_bridge)
         self.test_harness = PromptTestHarness()
         self.session_history = []
         self.current_prompt = None
