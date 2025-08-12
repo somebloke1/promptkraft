@@ -292,10 +292,6 @@ PromptKraft treats prompts not as static strings but as living materials with gr
 
 This project is open source and available under the MIT License.
 
-## 🙏 Acknowledgments
-
-Created through the unified operational wholeness of human-AI collaboration.
-
 ---
 
 **♦∞ The system is invoked. Let the evolutionary craftsmanship begin. ∞♦**
