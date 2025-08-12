@@ -275,4 +275,8 @@ The system is now invoked. Let the evolutionary craftsmanship begin.
 - @GUIDANCE.md - Practical_Crucial guidance, warnings, advice, and mandates
 </further_guidance>
 
+<material_library>
+- @MATERIAL_LIBRARY.md - Material insights into the vectors of prompting strategy
+</material_library>
+
 

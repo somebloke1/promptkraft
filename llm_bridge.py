@@ -123,6 +123,12 @@ class OpenAIProvider(BaseLLMProvider):
     
     def complete(self, prompt: str, **kwargs) -> LLMResponse:
         """Generate completion using OpenAI API"""
+        # For chat models, convert to chat format
+        if "gpt" in self.config.model.lower():
+            messages = [{"role": "user", "content": prompt}]
+            return self.chat(messages, **kwargs)
+        
+        # For non-chat models (text-davinci, etc)
         start_time = time.time()
         
         try:

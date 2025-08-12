@@ -151,7 +151,7 @@ print(response.content)
 - **CLAUDE.md** - Unity invocation and prime directive
 - **MATERIAL_LIBRARY.md** - Etymological anchors and archetypal patterns
 - **OPERATION_SPECIFICATIONS.md** - Detailed operational specifications
-- **EVOLUTION_PROTOCOLS.md** - Daily, weekly, monthly evolution cycles
+- **EVOLUTION_PROTOCOLS.md** - Ordinal evolution cycles (α, β, γ, δ)
 
 ### Material Quality Standards
 
@@ -246,22 +246,31 @@ PromptKraft/
 
 ## 🔄 Evolution Cycles
 
-### Daily Cycle
-- **Morning**: Assess operational capabilities
-- **Midday**: Test and refine materials
-- **Evening**: Integrate improvements
+### Cycle α (Primary)
+- **Phase 1**: Assess operational capabilities
+- **Phase 2**: Test and refine materials (4-8x Phase 1 duration)
+- **Phase 3**: Integrate improvements (0.5-1x Phase 1 duration)
 
-### Weekly Cycle
-- **Monday**: Discovery sprint
-- **Tue-Wed**: Refinement workshop
-- **Thursday**: Validation testing
-- **Friday**: Integration assembly
+### Cycle β (Secondary)
+**Recurrence**: Every 5-7 Cycle α
+- **Phase 1**: Discovery operations
+- **Phase 2-3**: Refinement operations
+- **Phase 4**: Validation testing
+- **Phase 5**: Integration assembly
 
-### Monthly Cycle
-- **Week 1**: Capability evaluation
-- **Week 2**: Major upgrades
-- **Week 3**: Documentation
-- **Week 4**: Strategic planning
+### Cycle γ (Tertiary)
+**Recurrence**: Every 4-6 Cycle β
+- **Stage 1**: Capability evaluation
+- **Stage 2**: Major upgrades
+- **Stage 3**: Knowledge codification
+- **Stage 4**: Strategic planning
+
+### Cycle δ (Meta)
+**Recurrence**: Every 3-4 Cycle γ
+- **Epoch 1**: Evolution process audit
+- **Epoch 2**: Breakthrough catalyst
+- **Epoch 3**: Consolidation
+- **Epoch 4**: Vision development
 
 ## 🤝 Contributing
 

@@ -20,7 +20,7 @@ Imperatives of Software Development:
 <python_guidance>
 ## Python Execution
 - UV is the virtual environment system
-  - Module Installation: "uv pip ..."
+  - Module Installation: "uv pip install ..."
   - Location: "./.venv"
   - Project metadata and dependencies: ./pyproject.toml
 </python_guidance>
@@ -38,7 +38,7 @@ Imperatives of Model Behavior:
 - Be wise like Solomon and Aristotle
 </model_behavior_guidance>
 
-<agent_selection_for_tasks>
+<claude_agents>
 When you read this, review your context and make note of the agents defined and
 available for task delegations. Make use of them intelligently, resourcefully,
 and prudently. Whenever you have a task that involves a tool or a function, pause
@@ -46,4 +46,19 @@ and consider whether it would be advisable to delegate to an agent. Whenever you
 delegate to an agent task, consider what they know and don't know, and provide
 the context they need to complete the assigned task. DO_NOT leave an agent in the
 dark. Pitfalls and reminders from user plausibly_relevant_to_task should be included.
-</agent_selection_for_tasks>
+</claude_agents>
+
+<anticipate_toolset_uses>
+When you initialize, review all function definitions of all tools available to you
+including but not limited to:
+- mcp-zen
+- context7
+- playwright 
+</anticipate_toolset_uses>
+
+<recurrence_specification>
+Use Ordinal Recurrence:
+- Avoid fictional time periods (daily/weekly/monthly)
+- Better Approach: Cycle β occurs every 5-7 α completions, γ every 4-6 β, etc.
+- Be honest about logical sequence without fabricating timelines
+</recurrence_specification>

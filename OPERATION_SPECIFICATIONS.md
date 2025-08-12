@@ -417,21 +417,21 @@ Sequential steps:
 
 ### EVOLUTION CYCLE MANAGEMENT
 
-**Daily Cycle**:
-- Morning: Assess and plan
-- Midday: Execute and refine
-- Evening: Integrate and document
+**Cycle α (Primary)**:
+- Phase 1: Assess and plan
+- Phase 2: Execute and refine
+- Phase 3: Integrate and document
 
-**Weekly Cycle**:
-- Discovery sprints
-- Refinement workshops
+**Cycle β (Secondary)**:
+- Discovery operations
+- Refinement operations
 - Validation testing
 - Integration assembly
 
-**Monthly Cycle**:
+**Cycle γ (Tertiary)**:
 - Capability assessment
 - Major upgrades
-- Documentation updates
+- Knowledge codification
 - Strategic planning
 
 ### RECURSIVE IMPROVEMENT
