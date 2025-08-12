@@ -12,6 +12,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from enum import Enum
 import statistics
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Import our LLM Bridge
+from llm_bridge import LLMBridge, LLMConfig, LLMProvider, LLMResponse
 
 
 class TestType(Enum):
@@ -62,11 +70,28 @@ class ValidationReport:
 class PromptTestHarness:
     """Testing harness for prompt validation"""
     
-    def __init__(self, base_path: Path = Path(".")):
+    def __init__(self, base_path: Path = Path("."), llm_provider: Optional[LLMProvider] = None):
         self.base_path = base_path
         self.test_history: List[ValidationReport] = []
         self.performance_baselines: Dict[str, float] = {}
         self.test_contexts = self._generate_test_contexts()
+        
+        # Initialize LLM Bridge
+        if llm_provider is None:
+            # Default to mock for testing, but check for API keys
+            if os.getenv("OPENAI_API_KEY"):
+                llm_provider = LLMProvider.OPENAI
+            elif os.getenv("ANTHROPIC_API_KEY"):
+                llm_provider = LLMProvider.ANTHROPIC
+            else:
+                llm_provider = LLMProvider.MOCK
+        
+        self.llm_config = LLMConfig(
+            provider=llm_provider,
+            temperature=0.7,
+            max_tokens=500
+        )
+        self.llm_bridge = LLMBridge(self.llm_config)
     
     def _generate_test_contexts(self) -> List[TestContext]:
         """Generate diverse test contexts"""
@@ -426,24 +451,29 @@ class PromptTestHarness:
         return report
     
     def _execute_prompt(self, prompt: str, context: TestContext) -> str:
-        """Simulate prompt execution with an LLM"""
-        # In production, this would call actual LLM API
-        # For now, simulate with deterministic output based on prompt and context
-        
-        # Simulate execution delay
-        time.sleep(0.01 * context.pressure_factor)
-        
-        # Generate simulated output
-        seed = hashlib.md5(f"{prompt}{context.domain}{context.complexity}".encode()).hexdigest()
-        
-        if context.noise_level > 0.5:
-            output = f"[Noisy-{seed[:8]}] Degraded operational response"
-        elif context.pressure_factor > 3.0:
-            output = f"[Pressure-{seed[:8]}] Stressed operational response"
-        else:
-            output = f"[{seed[:8]}] Clean operational response for: {prompt[:30]}"
-        
-        return output
+        """Execute prompt with real LLM or mock"""
+        try:
+            # Adjust LLM parameters based on context
+            self.llm_bridge.config.temperature = context.temperature
+            
+            # Add context information to prompt if needed
+            if context.noise_level > 0:
+                prompt = f"[Context: {context.domain}, Complexity: {context.complexity}]\n{prompt}"
+            
+            # Execute through LLM Bridge
+            response = self.llm_bridge.execute_prompt(
+                prompt,
+                temperature=context.temperature,
+                max_tokens=500
+            )
+            
+            return response.content
+            
+        except Exception as e:
+            # Fallback to deterministic output on error
+            print(f"LLM execution error, using fallback: {e}")
+            seed = hashlib.md5(f"{prompt}{context.domain}{context.complexity}".encode()).hexdigest()
+            return f"[Fallback-{seed[:8]}] Response for: {prompt[:30]}"
     
     def _calculate_similarity(self, text1: str, text2: str) -> float:
         """Calculate similarity between two texts"""
@@ -628,8 +658,12 @@ def main():
     print("Rigorous Validation of Operational Prompts")
     print("═" * 60)
     
-    # Initialize test harness
+    # Initialize test harness (will auto-detect provider from env)
     harness = PromptTestHarness(base_path=Path("."))
+    
+    print(f"\nUsing LLM Provider: {harness.llm_config.provider.value}")
+    print(f"Model: {harness.llm_config.model}")
+    print("-" * 60)
     
     # Test prompts
     test_prompts = [

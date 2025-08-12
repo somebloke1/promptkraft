@@ -1,0 +1,32 @@
+# PromptKraft Requirements
+# Self-evolving prompt craftsmanship system
+
+# Core dependencies
+python-dotenv>=1.0.0
+
+# LLM Providers
+openai>=1.0.0
+anthropic>=0.18.0
+
+# Optional providers (uncomment as needed)
+# google-generativeai>=0.3.0  # For Gemini support
+# replicate>=0.15.0           # For open source models
+
+# Testing and development
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+
+# CLI enhancements
+rich>=13.5.0       # For better terminal output
+click>=8.1.0       # Alternative CLI framework
+prompt-toolkit>=3.0.0  # Advanced prompt features
+
+# Data processing
+numpy>=1.24.0
+pandas>=2.0.0      # For metrics analysis
+
+# Utilities
+requests>=2.31.0
+aiohttp>=3.8.0     # For async operations
+pydantic>=2.0.0    # For data validation
